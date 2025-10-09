@@ -32,7 +32,7 @@ services:
     ports:
       - "8080:8080"  # API port - for queue management
     volumes:
-      - ./byschiitv/media:/media:ro  # Mount media files as read-only
+      - "${HOST_MEDIA_PATH:-./byschiitv/media}:/media:ro"
     networks:
       - iptvsim-network
     depends_on:
