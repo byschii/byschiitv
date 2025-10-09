@@ -1,0 +1,12 @@
+# Ignore git, local build artifacts and editor files
+.git
+.gitignore
+bin
+**/*.log
+**/*.tmp
+.idea
+.vscode
+node_modules
+
+# Exclude Dockerfile itself from copy if present
+Dockerfile

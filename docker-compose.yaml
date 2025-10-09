@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # NGINX RTMP server for streaming
+  nginx-rtmp:
+    build:
+      context: .
+      dockerfile: nginxconf/Dockerfile
+    container_name: iptvsim-nginx
+    ports:
+      - "1935:1935"  # RTMP port - for publishing streams
+      - "8081:8080"  # HTTP port - for HLS/DASH playback and stats
+    volumes:
+      - ./nginxconf/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginxconf/stat.xsl:/etc/nginx/stat.xsl:ro
+    networks:
+      - iptvsim-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/stat"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Go application for streaming control
+  byschiitv:
+    build:
+      context: ./byschiitv
+      dockerfile: Dockerfile
+    container_name: iptvsim-app
+    ports:
+      - "8080:8080"  # API port - for queue management
+    volumes:
+      - ./byschiitv/media:/media:ro  # Mount media files as read-only
+    networks:
+      - iptvsim-network
+    depends_on:
+      - nginx-rtmp
+    environment:
+      - GIN_MODE=release
+    restart: unless-stopped
+
+networks:
+  iptvsim-network:
+    driver: bridge
