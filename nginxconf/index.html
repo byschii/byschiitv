@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Video.js HLS Player</title>
+
+  <!-- Video.js CSS (CDN) -->
+  <link href="https://vjs.zencdn.net/8/video-js.css" rel="stylesheet" />
+
+  <!-- Optional small page style -->
+  <style>
+    body { font-family: system-ui, Arial; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; background:#111; color:#fff; }
+    .player-wrap { max-width:960px; width:100%; padding:16px; box-sizing:border-box; }
+  </style>
+</head>
+<body>
+  <div class="player-wrap">
+    <video
+      id="player"
+      class="video-js vjs-big-play-centered"
+      controls
+      preload="auto"
+      width="800"
+      height="450"
+      data-setup='{}'>
+      <!-- Replace "mystream" with your stream key -->
+      <source src="/hls/stream.m3u8" type="application/x-mpegURL" />
+      <!-- DASH example (use instead of the HLS source if you want DASH): -->
+      <!-- <source src="/dash/mystream.mpd" type="application/dash+xml" /> -->
+      Your browser does not support HTML5 video. Try a modern browser.
+    </video>
+  </div>
+
+  <!-- Video.js script (CDN, includes VHS for HLS) -->
+  <script src="https://vjs.zencdn.net/8/video.min.js"></script>
+
+  <script>
+    // Minimal initialization (Video.js auto-initializes with data-setup, but this lets you access API)
+    const player = videojs('player');
+
+    // Optional: try to autoplay when allowed by browser
+    // player.autoplay(true);
+    // If you want programmatic reload when stream appears:
+    // function reloadIfNotPlaying() { if (player.paused()) player.src({ src: '/hls/mystream.m3u8', type: 'application/x-mpegURL' }); }
+    // setInterval(reloadIfNotPlaying, 3000);
+  </script>
+</body>
+</html>
