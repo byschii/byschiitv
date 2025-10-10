@@ -7,7 +7,7 @@ func FfmpegLightCommand(videoPath string, rtmpURL string) []string {
 	sliceCommand := []string{
 		"-re",
 		"-i", videoPath,
-		"-c:v", "h264_v4l2m2m",
+		"-c:v", "h264_omx", //"h264_v4l2m2m",
 		"-num_output_buffers", "32", // important for v4l2m2m
 		"-num_capture_buffers", "16", // stabilizes encoder
 		"-b:v", "1000k", // set bitrate
