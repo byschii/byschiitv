@@ -11,7 +11,7 @@ func FfmpegLightCommand(videoPath string, rtmpURL string) []string {
 		"-b:v", "1000k",
 		"-maxrate", "1200k",
 		"-bufsize", "2000k", // video bitrate
-		"-vf", "scale=1280,720:flags=fast_bilinear,fps=30,format=yuv420p", // scale video to 480p
+		"-vf", "scale=1280:720,fps=30,format=yuv420p", // scale video to 720p
 		"-g", "50",
 		"-keyint_min", "50", // GOP size
 		"-num_output_buffers", "32",
