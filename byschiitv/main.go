@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -41,23 +40,13 @@ func streamToRTMP(ctx context.Context, videoPath string, rtmpURL string) error {
 	return nil
 }
 
-// Server holds the queue and worker control.
-type Server struct {
-	mu            sync.Mutex
-	queue         []string
-	workerCancel  context.CancelFunc
-	workerRunning bool
-	// current item control
-	currentCancel context.CancelFunc
-	currentItem   string
-}
-
 func NewServer() *Server { return &Server{} }
 
 func (s *Server) Enqueue(item string) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.queue = append(s.queue, item)
+	pl := PlaylistElement{Path: item}
+	s.queue = append(s.queue, pl)
 	return len(s.queue)
 }
 
@@ -69,13 +58,13 @@ func (s *Server) Dequeue() (string, bool) {
 	}
 	item := s.queue[0]
 	s.queue = s.queue[1:]
-	return item, true
+	return item.Path, true
 }
 
-func (s *Server) List() []string {
+func (s *Server) List() []PlaylistElement {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out := make([]string, len(s.queue))
+	out := make([]PlaylistElement, len(s.queue))
 	copy(out, s.queue)
 	return out
 }
