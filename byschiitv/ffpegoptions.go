@@ -5,13 +5,18 @@ package main
 func FfmpegLightCommand(videoPath string, rtmpURL string) []string {
 	// Example: ffmpeg -re -i input.mp4 -c copy -f flv rtmp://localhost/live/stream
 	sliceCommand := []string{
-		"-re",           // read at native frame rate
-		"-i", videoPath, // input file
-		"-c:v", "h264_v4l2m2m", // video codec
+		"-re",
+		"-i", videoPath,
+		"-c:v", "h264_v4l2m2m",
+		"-num_output_buffers", "32", // important for v4l2m2m
+		"-num_capture_buffers", "16", // stabilizes encoder
+		"-b:v", "1000k", // set bitrate
 		"-c:a", "aac",
-		"-vf", "scale=1280:720,fps=30", // scale video to 720p
-		"-f", "flv", // output format
-		rtmpURL}
+		"-b:a", "96k",
+		"-vf", "scale=1280:720,fps=30",
+		"-f", "flv",
+		rtmpURL,
+	}
 
 	return sliceCommand
 }
