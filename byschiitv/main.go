@@ -20,17 +20,7 @@ import (
 // It listens on ctx and stops the stream when cancelled.
 func streamToRTMP(ctx context.Context, videoPath string, rtmpURL string) error {
 	// Example: ffmpeg -re -i input.mp4 -c copy -f flv rtmp://localhost/live/stream
-	cmd := exec.CommandContext(ctx, "ffmpeg",
-		"-re",           // read at native frame rate
-		"-i", videoPath, // input file
-		"-c:v", "libx264", // video codec
-		"-preset", "veryfast", // encoding speed
-		"-tune", "zerolatency", // low latency
-		"-c:a", "aac", // audio codec
-		"-b:a", "128k", // audio bitrate
-		"-f", "flv", // output format
-		rtmpURL,
-	)
+	cmd := exec.CommandContext(ctx, "ffmpeg", ffmpegLightCommand(videoPath, rtmpURL)...)
 
 	// Optional: capture output for logging
 	cmd.Stdout = os.Stdout
@@ -49,20 +39,6 @@ func streamToRTMP(ctx context.Context, videoPath string, rtmpURL string) error {
 
 	log.Printf("streaming completed: %s", videoPath)
 	return nil
-}
-
-func simBackGroundTask(ctx context.Context, name string) {
-	for _, char := range name {
-		select {
-		case <-ctx.Done():
-			fmt.Println()
-			return
-		default:
-			fmt.Printf("%c", char)
-			time.Sleep(700 * time.Millisecond)
-		}
-	}
-	fmt.Println()
 }
 
 // Server holds the queue and worker control.
