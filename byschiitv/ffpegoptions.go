@@ -20,6 +20,7 @@ func FfmpegLightCommand(videoPath string, rtmpURL string) []string {
 		"-b:a", "64k",
 		"-ar", "44100",
 		"-ac", "2", // audio codec
+		"-f", "flv", // output format
 		rtmpURL}
 
 	return sliceCommand
