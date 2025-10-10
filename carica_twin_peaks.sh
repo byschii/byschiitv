@@ -12,6 +12,9 @@ curl http://localhost:8080/start
 
 
 
+echo ""
+
+curl http://localhost:8080/start
 
 
 

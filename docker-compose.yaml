@@ -50,7 +50,7 @@ services:
       - /dev/media3:/dev/media3
     group_add:
       - video
-    privileged: false  # try without first
+    privileged: true  # try without first
 
 networks:
   iptvsim-network:
