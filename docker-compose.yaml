@@ -40,18 +40,25 @@ services:
     environment:
       - GIN_MODE=release
     restart: unless-stopped
+    group_add:
+      - video
+    privileged: true          # keep on while you debug; you can tighten later
     devices:
       - /dev/video10:/dev/video10
       - /dev/video11:/dev/video11
       - /dev/video12:/dev/video12
-      - /dev/vchiq:/dev/vchiq          # Important for VideoCore
+      - /dev/vchiq:/dev/vchiq
       - /dev/media0:/dev/media0
       - /dev/media1:/dev/media1
+      - /dev/media2:/dev/media2
       - /dev/media3:/dev/media3
-    group_add:
-      - video
-    privileged: true  # try without first
-
+      # OPTIONALLY add these if they exist on host (some stacks need them):
+      - /dev/video18:/dev/video18     # bcm2835-codec image_fx helper
+      - /dev/video31:/dev/video31
+    # If you want to avoid listing every /dev/video*:
+    device_cgroup_rules:
+      - 'c 81:* rwm'      # all Video4Linux devices
+      - 'c 244:* rwm'     # common on some Pi kernels for vchiq (harmless if absent)
 networks:
   iptvsim-network:
     driver: bridge

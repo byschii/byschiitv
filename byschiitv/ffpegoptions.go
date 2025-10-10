@@ -13,7 +13,7 @@ func FfmpegLightCommand(videoPath string, rtmpURL string) []string {
 		"-b:v", "1000k", // set bitrate
 		"-c:a", "aac",
 		"-b:a", "96k",
-		"-vf", "scale=1280:720,fps=30",
+		"-vf", "scale=1280:720,fps=30,format=yuv420p",
 		"-f", "flv",
 		rtmpURL,
 	}
