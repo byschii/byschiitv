@@ -13,7 +13,7 @@ RUN go mod download
 
 # Copy the rest of the project and build
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w" -o /iptvsim main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w" -o /iptvsim .
 
 FROM alpine:3.18
 
