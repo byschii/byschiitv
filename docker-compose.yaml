@@ -40,6 +40,17 @@ services:
     environment:
       - GIN_MODE=release
     restart: unless-stopped
+    devices:
+      - /dev/video10:/dev/video10
+      - /dev/video11:/dev/video11
+      - /dev/video12:/dev/video12
+      - /dev/vchiq:/dev/vchiq          # Important for VideoCore
+      - /dev/media0:/dev/media0
+      - /dev/media1:/dev/media1
+      - /dev/media3:/dev/media3
+    group_add:
+      - video
+    privileged: false  # try without first
 
 networks:
   iptvsim-network:
