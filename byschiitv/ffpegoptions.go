@@ -8,12 +8,12 @@ func FfmpegLightCommand(videoPath string, rtmpURL string) []string {
 		"-re",           // read at native frame rate
 		"-i", videoPath, // input file
 		"-c:v", "h264_v4l2m2m", // video codec
-		"-b:v", "1000k",
-		"-maxrate", "1200k",
-		"-bufsize", "2000k", // video bitrate
-		"-vf", "scale=1280:720,fps=30,format=yuv420p", // scale video to 720p
-		"-g", "50",
-		"-keyint_min", "50", // GOP size
+		"-b:v", "1000k", // video bitrate (should be less than 1200k to allow for overhead)
+		"-maxrate", "1200k", // max video bitrate
+		"-bufsize", "2000k", // buffer size for rate control
+		"-vf", "scale=1280:720,fps=30", // scale video to 720p
+		"-g", "50", // smaller meanns more keyframes (should be double the fps for low latency)
+		"-keyint_min", "50", //
 		"-num_output_buffers", "32",
 		"-num_capture_buffers", "16",
 		"-c:a", "aac",
