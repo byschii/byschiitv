@@ -1,6 +1,6 @@
 package main
 
-func ffmpegCommand(videoPath string, rtmpURL string) []string {
+func FfmpegCommand(videoPath string, rtmpURL string) []string {
 	// Example: ffmpeg -re -i input.mp4 -c copy -f flv rtmp://localhost/live/stream
 	sliceCommand := []string{
 		"-re",           // read at native frame rate
@@ -19,7 +19,7 @@ func ffmpegCommand(videoPath string, rtmpURL string) []string {
 
 // streamToRTMP starts an FFmpeg command to stream a video file to nginx-rtmp.
 // It listens on ctx and stops the stream when cancelled.
-func ffmpegLightCommand(videoPath string, rtmpURL string) []string {
+func FfmpegLightCommand(videoPath string, rtmpURL string) []string {
 	// Example: ffmpeg -re -i input.mp4 -c copy -f flv rtmp://localhost/live/stream
 	sliceCommand := []string{
 		"-re",           // read at native frame rate
@@ -37,10 +37,11 @@ func ffmpegLightCommand(videoPath string, rtmpURL string) []string {
 	return sliceCommand
 }
 
-func ffmpegVeryLightCommand(videoPath string, rtmpURL string) []string {
+func FfmpegVeryLightCommand(videoPath string, rtmpURL string) []string {
 	// Example: ffmpeg -re -i input.mp4 -c copy -f flv rtmp://localhost/live/stream
 	sliceCommand := []string{
-		"-re",           // read at native frame rate
+		"-re", // read at native frame rate
+
 		"-i", videoPath, // input file
 		"-vf", "scale=854:480", // scale video to 480p
 		"-c:v", "h264_v4l2m2m", // video codec

@@ -20,7 +20,7 @@ import (
 // It listens on ctx and stops the stream when cancelled.
 func streamToRTMP(ctx context.Context, videoPath string, rtmpURL string) error {
 	// Example: ffmpeg -re -i input.mp4 -c copy -f flv rtmp://localhost/live/stream
-	cmd := exec.CommandContext(ctx, "ffmpeg", ffmpegLightCommand(videoPath, rtmpURL)...)
+	cmd := exec.CommandContext(ctx, "ffmpeg", FfmpegLightCommand(videoPath, rtmpURL)...)
 
 	// Optional: capture output for logging
 	cmd.Stdout = os.Stdout
