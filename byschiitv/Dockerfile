@@ -1,29 +1,33 @@
-
-# Multi-stage Dockerfile for iptvsim
-#  - builder: uses the official golang image to compile the binary
-#  - final: small alpine image that runs the compiled binary
-
-FROM golang:1.23-alpine AS builder
+# ---- builder: compile Go (static) -------------------------------------------
+FROM --platform=$BUILDPLATFORM golang:1.23-alpine AS builder
 
 WORKDIR /src
-
-# Cache modules
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the rest of the project and build
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags "-s -w" -o /iptvsim .
+ARG TARGETOS=linux
+ARG TARGETARCH
+ENV CGO_ENABLED=0
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -ldflags="-s -w" -o /out/iptvsim .
 
-FROM alpine:3.18
+# ---- final: Raspberry Pi OS + FFmpeg (HW accel) -----------------------------
+FROM ghcr.io/dtcooper/raspberrypi-os:bookworm
 
-# non-root user
-RUN addgroup -S app && adduser -S -G app app
+# FFmpeg + tools from RPi OS repos (includes v4l2 m2m/request bits)
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      ffmpeg v4l-utils libdrm2 ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /iptvsim /usr/local/bin/iptvsim
-RUN apk add --no-cache ffmpeg
+# Non-root user that can access /dev/video*
+RUN useradd -m -u 1000 -s /bin/bash app && usermod -aG video app
+
+# App
+COPY --from=builder /out/iptvsim /usr/local/bin/iptvsim
+WORKDIR /work
 EXPOSE 8080
 USER app
 
 ENTRYPOINT ["/usr/local/bin/iptvsim"]
-
