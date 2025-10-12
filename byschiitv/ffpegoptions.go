@@ -15,14 +15,6 @@ import (
 // streamToRTMP starts an FFmpeg command to stream a video file to nginx-rtmp.
 // It listens on ctx and stops the stream when cancelled.
 func FfmpegLightCommand(videoPath string, rtmpURL string) []string {
-	textFilter := fmt.Sprintf(
-		"drawtext=text='%s':fontsize=24:fontcolor=white:"+
-			"x=w-(mod(t\\,%d)*w*%.1f/%d):y=h-50:"+
-			"enable='lt(mod(t\\,%d),%d)'",
-		description,
-		interval, scrollDistance, duration, // x position calculation
-		interval, duration, // enable condition
-	)
 
 	sliceCommand := []string{
 		"-re",
@@ -33,7 +25,7 @@ func FfmpegLightCommand(videoPath string, rtmpURL string) []string {
 		"-b:v", "1000k", // set bitrate
 		"-c:a", "aac",
 		"-b:a", "96k",
-		"-vf", "scale=1280:720,fps=30,format=yuv420p",
+		"-vf", "scale=1280:720,fps=30,format=yuv420p," + getTextFilter(videoPath),
 		"-f", "flv",
 		rtmpURL,
 	}
@@ -41,8 +33,11 @@ func FfmpegLightCommand(videoPath string, rtmpURL string) []string {
 	return sliceCommand
 }
 
-func FfmpegVeryLightCommand(videoPath string, rtmpURL string) []string {
-	textFilter := fmt.Sprintf(
+func getTextFilter(description string) string {
+	interval := 10        // seconds for one full scroll cycle
+	duration := 6         // seconds the text is fully visible
+	scrollDistance := 1.2 // how far to scroll (1.0 = full width, 2.0 = twice width, etc)
+	return fmt.Sprintf(
 		"drawtext=text='%s':fontsize=24:fontcolor=white:"+
 			"x=w-(mod(t\\,%d)*w*%.1f/%d):y=h-50:"+
 			"enable='lt(mod(t\\,%d),%d)'",
@@ -50,6 +45,9 @@ func FfmpegVeryLightCommand(videoPath string, rtmpURL string) []string {
 		interval, scrollDistance, duration, // x position calculation
 		interval, duration, // enable condition
 	)
+}
+
+func FfmpegVeryLightCommand(videoPath string, rtmpURL string) []string {
 
 	sliceCommand := []string{
 		"-re",           // read at native frame rate
@@ -58,7 +56,7 @@ func FfmpegVeryLightCommand(videoPath string, rtmpURL string) []string {
 		"-b:v", "800k", // set video bitrate
 		"-c:a", "aac",
 		"-b:a", "64k", // set audio bitrate
-		"-vf", "scale=854:480,fps=24,format=yuv420p",
+		"-vf", "scale=854:480,fps=24,format=yuv420p," + getTextFilter(videoPath),
 		"-f", "flv", // output format
 		rtmpURL}
 
@@ -157,34 +155,48 @@ func escapeFFmpegText(text string) string {
 // streamToRTMP starts an FFmpeg command to stream a video file to nginx-rtmp.
 // It listens on ctx and stops the stream when cancelled.
 func StreamToRTMP(ctx context.Context, video PlaylistElement, rtmpURL string) error {
-	// Example: ffmpeg -re -i input.mp4 -c copy -f flv rtmp://localhost/live/stream
+	log.Print("streaming: ", video.Desc())
+
 	var cmd *exec.Cmd
-	if video.IdleLength > 0 {
-		cmd = exec.CommandContext(ctx, "ffmpeg", FfmpegIdleStreamCommand(rtmpURL, video.IdleLength)...)
-	} else {
+	switch video := video.(type) {
+	case IdleElement:
+		cmd = exec.CommandContext(
+			ctx,
+			"ffmpeg",
+			FfmpegIdleStreamCommand(
+				rtmpURL,
+				video.IdleSeconds,
+				"desc", // video.NextMovie,
+				video.Description,
+				0, // video.StartTimeUnix
+			)...,
+		)
+	case VideoElement:
+		// Normal video streaming
+		// Decide command based on quality setting
 		if video.HiQuality {
 			cmd = exec.CommandContext(ctx, "ffmpeg", FfmpegLightCommand(video.Path, rtmpURL)...)
 		} else {
 			cmd = exec.CommandContext(ctx, "ffmpeg", FfmpegVeryLightCommand(video.Path, rtmpURL)...)
 		}
+	default:
+		return fmt.Errorf("unknown video element type")
 	}
 
 	// Optional: capture output for logging
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	log.Printf("streaming: %s -> %s", video.Path, rtmpURL)
-
 	if err := cmd.Run(); err != nil {
 		// Check if it was cancelled vs actual error
 		if ctx.Err() == context.Canceled {
-			log.Printf("streaming interrupted: %s", video.Path)
+			log.Printf("streaming interrupted: %s", video.Desc())
 			return ctx.Err()
 		}
 		return fmt.Errorf("ffmpeg error: %w", err)
 	}
 
-	log.Printf("streaming completed: %s", video.Path)
+	log.Printf("streaming completed: %s", video.Desc())
 	return nil
 }
 

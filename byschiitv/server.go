@@ -9,11 +9,36 @@ import (
 	"time"
 )
 
-type PlaylistElement struct {
-	IdleLength  int    `json:"idle_length"` // in minutes
-	Path        string `json:"path"`
-	HiQuality   bool   `json:"hi_quality"`
+type PlaylistElement interface {
+	Type() string
+	Desc() string
+}
+
+type VideoElement struct {
+	Path      string `json:"path"`
+	HiQuality bool   `json:"hi_quality"`
+}
+
+func (v VideoElement) Type() string {
+	return "video"
+}
+func (v VideoElement) Desc() string {
+	return v.Path
+}
+
+type IdleElement struct {
+	IdleSeconds int    `json:"idle_seconds"`
 	Description string `json:"description,omitempty"`
+}
+
+func (i IdleElement) Type() string {
+	return "idle"
+}
+func (i IdleElement) Desc() string {
+	if i.Description != "" {
+		return i.Description
+	}
+	return fmt.Sprintf("Idle for %d seconds", i.IdleSeconds)
 }
 
 // Server holds the queue and worker control.
@@ -46,7 +71,7 @@ func NewServer() *Server {
 func (s *Server) Append(item string) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	pl := PlaylistElement{Path: item}
+	pl := VideoElement{Path: item, HiQuality: false}
 	s.playlist = append(s.playlist, pl)
 	return len(s.playlist)
 }
@@ -55,12 +80,8 @@ func (s *Server) Status() PlayerStatus {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	duration := 0
-	for _, item := range s.playlist {
-		if item.IdleLength > 0 {
-			duration += item.IdleLength
-			continue
-		}
-		dur, err := GetVideoDuration(context.Background(), item.Path)
+	for i, _ := range s.playlist {
+		dur, err := s.GetDuration(i)
 		if err == nil {
 			duration += int(dur.Seconds())
 		}
@@ -81,7 +102,7 @@ func (s *Server) Remove(index int) (PlaylistElement, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if index < 0 || index >= len(s.playlist) {
-		return PlaylistElement{}, false
+		return nil, false
 	}
 	item := s.playlist[index]
 	s.playlist = slices.Delete(s.playlist, index, index+1)
@@ -106,19 +127,18 @@ func (s *Server) Current() (PlaylistElement, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.currentlyPlaying < 0 || s.currentlyPlaying >= len(s.playlist) {
-		return PlaylistElement{}, false
+		return nil, false
 	}
 	return s.playlist[s.currentlyPlaying], true
 }
 
-func (s *Server) Insert(index int, item string) bool {
+func (s *Server) Insert(index int, element PlaylistElement) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if index < 0 || index > len(s.playlist) {
 		return false
 	}
-	pl := PlaylistElement{Path: item}
-	s.playlist = slices.Insert(s.playlist, index, pl)
+	s.playlist = slices.Insert(s.playlist, index, element)
 	return true
 }
 
@@ -216,10 +236,25 @@ func (s *Server) GetDuration(index int) (time.Duration, error) {
 		s.mu.Unlock()
 		return 0, fmt.Errorf("index %d out of bounds (playlist length: %d)", index, len(s.playlist))
 	}
-	path := s.playlist[index].Path
-	s.mu.Unlock()
+	switch item := s.playlist[index].(type) {
+	case IdleElement:
+		s.mu.Unlock()
+		return time.Duration(item.IdleSeconds) * time.Second, nil
+	case VideoElement:
+		path := item.Path
 
-	return GetVideoDuration(context.Background(), path)
+		s.mu.Unlock()
+		dur, err := GetVideoDuration(context.Background(), path)
+		if err != nil {
+			return 0, fmt.Errorf("ffprobe error for %s: %w", path, err)
+		}
+		return dur, nil
+
+	default:
+		s.mu.Unlock()
+		return 0, fmt.Errorf("unknown playlist item type at index %d", index)
+	}
+
 }
 
 func (s *Server) playerLoop(playerLoopCtx context.Context) {
