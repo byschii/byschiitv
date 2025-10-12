@@ -34,9 +34,18 @@ func FfmpegLightCommand(videoPath string, rtmpURL string) []string {
 }
 
 func getTextFilter(description string) string {
-	interval := 10        // seconds for one full scroll cycle
-	duration := 6         // seconds the text is fully visible
-	scrollDistance := 1.2 // how far to scroll (1.0 = full width, 2.0 = twice width, etc)
+	interval := 20        // seconds for one full scroll cycle, from appearance to disappearance
+	duration := 9         // seconds the text is fully visible, from left edge to right edge
+	scrollDistance := 1.5 // how far to scroll (1.0 = full width, 2.0 = twice width, etc)
+
+	// remove first chars from description
+	description = description[10:] // remove "/media/n. "
+	// padd up to 100 chars
+	strPadding := 150
+	if len(description) < strPadding {
+		description = description + strings.Repeat(" ", strPadding-len(description))
+	}
+
 	return fmt.Sprintf(
 		"drawtext=text='%s':fontsize=24:fontcolor=white:"+
 			"x=w-(mod(t\\,%d)*w*%.1f/%d):y=h-50:"+

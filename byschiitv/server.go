@@ -65,7 +65,9 @@ type PlayerStatus struct {
 }
 
 func NewServer() *Server {
-	return &Server{}
+	return &Server{
+		loop: true,
+	}
 }
 
 func (s *Server) Append(item string) int {
