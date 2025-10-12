@@ -34,9 +34,9 @@ func FfmpegLightCommand(videoPath string, rtmpURL string) []string {
 }
 
 func getTextFilter(description string) string {
-	interval := 20        // seconds for one full scroll cycle, from appearance to disappearance
-	duration := 9         // seconds the text is fully visible, from left edge to right edge
-	scrollDistance := 1.5 // how far to scroll (1.0 = full width, 2.0 = twice width, etc)
+	interval := 25        // seconds for one full scroll cycle, from appearance to disappearance
+	duration := 10        // seconds the text is fully visible, from left edge to right edge
+	scrollDistance := 1.8 // how far to scroll (1.0 = full width, 2.0 = twice width, etc)
 
 	// remove first chars from description
 	description = description[10:] // remove "/media/n. "
@@ -65,7 +65,7 @@ func FfmpegVeryLightCommand(videoPath string, rtmpURL string) []string {
 		"-b:v", "800k", // set video bitrate
 		"-c:a", "aac",
 		"-b:a", "64k", // set audio bitrate
-		"-vf", "scale=854:480,fps=24,format=yuv420p," + getTextFilter(videoPath),
+		"-vf", "scale=480:360,fps=23,format=yuv420p," + getTextFilter(videoPath),
 		"-f", "flv", // output format
 		rtmpURL}
 
