@@ -12,9 +12,38 @@ import (
 	"time"
 )
 
+type Q struct {
+	Width    int
+	Height   int
+	FPS      int
+	VBitrate string
+	ABitrate string
+}
+
+var Qualities169 = []Q{
+	{Width: 1280, Height: 720, FPS: 30, VBitrate: "2000k", ABitrate: "128k"}, // HD
+	{Width: 854, Height: 480, FPS: 23, VBitrate: "1000k", ABitrate: "96k"},   // SD
+	{Width: 640, Height: 360, FPS: 15, VBitrate: "600k", ABitrate: "64k"},    // LD
+}
+
+var Qualities43 = []Q{
+	{Width: 960, Height: 720, FPS: 30, VBitrate: "2000k", ABitrate: "128k"}, // HD
+	{Width: 640, Height: 480, FPS: 23, VBitrate: "1000k", ABitrate: "96k"},  // SD
+	{Width: 480, Height: 360, FPS: 15, VBitrate: "600k", ABitrate: "64k"},   // LD
+}
+
 // streamToRTMP starts an FFmpeg command to stream a video file to nginx-rtmp.
 // It listens on ctx and stops the stream when cancelled.
-func FfmpegLightCommand(videoPath string, rtmpURL string) []string {
+func FfmpegLightCommand(videoPath string, rtmpURL string, ciccione bool) []string {
+
+	var q Q
+	if ciccione {
+		q = Qualities43[0] // 4:3 aspect ratio, high quality
+	} else {
+		q = Qualities169[0] // 16:9 aspect ratio, high quality
+	}
+
+	vFilter := fmt.Sprintf("scale=%d:%d,fps=%d,format=yuv420p,%s", q.Width, q.Height, q.FPS, getTextFilter(videoPath))
 
 	sliceCommand := []string{
 		"-re",
@@ -22,10 +51,10 @@ func FfmpegLightCommand(videoPath string, rtmpURL string) []string {
 		"-c:v", "h264_v4l2m2m",
 		"-preset", "veryfast",
 		"-tune", "zerolatency",
-		"-b:v", "1000k", // set bitrate
+		"-b:v", q.VBitrate,
 		"-c:a", "aac",
-		"-b:a", "96k",
-		"-vf", "scale=1280:720,fps=30,format=yuv420p," + getTextFilter(videoPath),
+		"-b:a", q.ABitrate,
+		"-vf", vFilter,
 		"-f", "flv",
 		rtmpURL,
 	}
@@ -56,21 +85,29 @@ func getTextFilter(description string) string {
 	)
 }
 
-func FfmpegVeryLightCommand(videoPath string, rtmpURL string) []string {
+func FfmpegVeryLightCommand(videoPath string, rtmpURL string, ciccione bool) []string {
+
+	var q Q
+	if ciccione {
+		q = Qualities43[2] // 4:3 aspect ratio, medium quality
+	} else {
+		q = Qualities169[2] // 16:9 aspect ratio, medium quality
+	}
+
+	vFilter := fmt.Sprintf("scale=%d:%d,fps=%d,format=yuv420p,%s", q.Width, q.Height, q.FPS, getTextFilter(videoPath))
 
 	sliceCommand := []string{
 		"-re",           // read at native frame rate
 		"-i", videoPath, // input file
 		"-c:v", "h264_v4l2m2m",
-		"-b:v", "800k", // set video bitrate
+		"-b:v", q.VBitrate,
 		"-c:a", "aac",
-		"-b:a", "64k", // set audio bitrate
-		"-vf", "scale=480:360,fps=23,format=yuv420p," + getTextFilter(videoPath),
+		"-b:a", q.ABitrate,
+		"-vf", vFilter,
 		"-f", "flv", // output format
 		rtmpURL}
 
 	return sliceCommand
-
 }
 
 func FfmpegIdleStreamCommand(rtmpURL string, durationSeconds int, nextMovie string, description string, startTimeUnix int64) []string {
@@ -105,7 +142,7 @@ func FfmpegIdleStreamCommand(rtmpURL string, durationSeconds int, nextMovie stri
 	videoFilter := fmt.Sprintf(
 		"color=size=1280x720:rate=15:color=#0f0f1e,"+
 			// Top: Stream status with pulsing effect
-			"drawtext=text='⏸ INTERMISSION':fontsize=42:fontcolor=#ff6b6b:"+
+			"drawtext=text=' [||] INTERMISSION':fontsize=42:fontcolor=#ff6b6b:"+
 			"x=(w-text_w)/2:y=80:"+
 			"box=1:boxcolor=black@0.6:boxborderw=10:"+
 			"alpha='0.85+0.15*sin(t)',"+
@@ -184,9 +221,9 @@ func StreamToRTMP(ctx context.Context, video PlaylistElement, rtmpURL string) er
 		// Normal video streaming
 		// Decide command based on quality setting
 		if video.HiQuality {
-			cmd = exec.CommandContext(ctx, "ffmpeg", FfmpegLightCommand(video.Path, rtmpURL)...)
+			cmd = exec.CommandContext(ctx, "ffmpeg", FfmpegLightCommand(video.Path, rtmpURL, video.Ciccione)...)
 		} else {
-			cmd = exec.CommandContext(ctx, "ffmpeg", FfmpegVeryLightCommand(video.Path, rtmpURL)...)
+			cmd = exec.CommandContext(ctx, "ffmpeg", FfmpegVeryLightCommand(video.Path, rtmpURL, video.Ciccione)...)
 		}
 	default:
 		return fmt.Errorf("unknown video element type")

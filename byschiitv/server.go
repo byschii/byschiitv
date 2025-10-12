@@ -17,6 +17,7 @@ type PlaylistElement interface {
 type VideoElement struct {
 	Path      string `json:"path"`
 	HiQuality bool   `json:"hi_quality"`
+	Ciccione  bool   `json:"ciccione,omitempty"` // unused, for compatibility with old playlists
 }
 
 func (v VideoElement) Type() string {
