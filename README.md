@@ -36,6 +36,7 @@ There are 3 components:
     - no persistence, all data is lost on restart
     - no fancy UI, it is a TUI, so that it can be run in a terminal
     - share utils with server, so that the client can validate input before sending it to the server
+    - the idea is to build a planning day by day
 
 ## Env
 

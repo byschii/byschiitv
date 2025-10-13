@@ -83,7 +83,7 @@ func (s *Server) Status() PlayerStatus {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	duration := 0
-	for i, _ := range s.playlist {
+	for i := range s.playlist {
 		dur, err := s.GetDuration(i)
 		if err == nil {
 			duration += int(dur.Seconds())
