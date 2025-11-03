@@ -19,7 +19,13 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Recovery())
 
-	srv := NewServer()
+	rtmpURL := os.Getenv("RTMP_URL")
+	if rtmpURL == "" {
+		rtmpURL = "rtmp://iptvsim-nginx:1935/live/stream"
+	}
+	log.Printf("Using RTMP URL: %s", rtmpURL)
+
+	srv := NewServer(rtmpURL)
 
 	// Enqueue: /enque/<string> (capture rest of path)
 	r.GET(`/enque/*item`, func(c *gin.Context) {
@@ -75,9 +81,20 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"status": "skipped", "item": cur})
 	})
 
+	// Load playlist from JSON
+	r.POST("/load", func(c *gin.Context) {
+		var items []map[string]interface{}
+		if err := c.BindJSON(&items); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		srv.LoadPlaylist(items)
+		c.JSON(http.StatusOK, gin.H{"status": "loaded", "count": len(items)})
+	})
+
 	// root
 	r.GET("/", func(c *gin.Context) {
-		c.String(http.StatusOK, "iptvsim server. endpoints: /enque/<string> /next /list /start /stop")
+		c.String(http.StatusOK, "iptvsim server. endpoints: /enque/<string> /next /list /start /stop /load (POST)")
 	})
 
 	server := &http.Server{

@@ -34,7 +34,7 @@ var Qualities43 = []Q{
 
 // streamToRTMP starts an FFmpeg command to stream a video file to nginx-rtmp.
 // It listens on ctx and stops the stream when cancelled.
-func FfmpegLightCommand(videoPath string, rtmpURL string, ciccione bool) []string {
+func FfmpegLightCommand(videoPath string, rtmpURL string, ciccione bool, textBanner bool) []string {
 
 	var q Q
 	if ciccione {
@@ -43,7 +43,12 @@ func FfmpegLightCommand(videoPath string, rtmpURL string, ciccione bool) []strin
 		q = Qualities169[0] // 16:9 aspect ratio, high quality
 	}
 
-	vFilter := fmt.Sprintf("scale=%d:%d,fps=%d,format=yuv420p,%s", q.Width, q.Height, q.FPS, getTextFilter(videoPath))
+	var vFilter string
+	if textBanner {
+		vFilter = fmt.Sprintf("scale=%d:%d,fps=%d,format=yuv420p,%s", q.Width, q.Height, q.FPS, getTextFilter(videoPath))
+	} else {
+		vFilter = fmt.Sprintf("scale=%d:%d,fps=%d,format=yuv420p", q.Width, q.Height, q.FPS)
+	}
 
 	sliceCommand := []string{
 		"-re",
@@ -85,7 +90,7 @@ func getTextFilter(description string) string {
 	)
 }
 
-func FfmpegVeryLightCommand(videoPath string, rtmpURL string, ciccione bool) []string {
+func FfmpegVeryLightCommand(videoPath string, rtmpURL string, ciccione bool, textBanner bool) []string {
 
 	var q Q
 	if ciccione {
@@ -94,7 +99,12 @@ func FfmpegVeryLightCommand(videoPath string, rtmpURL string, ciccione bool) []s
 		q = Qualities169[2] // 16:9 aspect ratio, medium quality
 	}
 
-	vFilter := fmt.Sprintf("scale=%d:%d,fps=%d,format=yuv420p,%s", q.Width, q.Height, q.FPS, getTextFilter(videoPath))
+	var vFilter string
+	if textBanner {
+		vFilter = fmt.Sprintf("scale=%d:%d,fps=%d,format=yuv420p,%s", q.Width, q.Height, q.FPS, getTextFilter(videoPath))
+	} else {
+		vFilter = fmt.Sprintf("scale=%d:%d,fps=%d,format=yuv420p", q.Width, q.Height, q.FPS)
+	}
 
 	sliceCommand := []string{
 		"-re",           // read at native frame rate
@@ -220,10 +230,10 @@ func StreamToRTMP(ctx context.Context, video PlaylistElement, rtmpURL string) er
 	case VideoElement:
 		// Normal video streaming
 		// Decide command based on quality setting
-		if video.HiQuality {
-			cmd = exec.CommandContext(ctx, "ffmpeg", FfmpegLightCommand(video.Path, rtmpURL, video.Ciccione)...)
+		if video.HighQuality {
+			cmd = exec.CommandContext(ctx, "ffmpeg", FfmpegLightCommand(video.Path, rtmpURL, video.AspectRatio43, video.TextBanner)...)
 		} else {
-			cmd = exec.CommandContext(ctx, "ffmpeg", FfmpegVeryLightCommand(video.Path, rtmpURL, video.Ciccione)...)
+			cmd = exec.CommandContext(ctx, "ffmpeg", FfmpegVeryLightCommand(video.Path, rtmpURL, video.AspectRatio43, video.TextBanner)...)
 		}
 	default:
 		return fmt.Errorf("unknown video element type")

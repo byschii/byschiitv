@@ -15,9 +15,10 @@ type PlaylistElement interface {
 }
 
 type VideoElement struct {
-	Path      string `json:"path"`
-	HiQuality bool   `json:"hi_quality"`
-	Ciccione  bool   `json:"ciccione,omitempty"` // unused, for compatibility with old playlists
+	Path          string `json:"path"`
+	HighQuality   bool   `json:"high_quality"`
+	AspectRatio43 bool   `json:"aspect_ratio_4_3,omitempty"`
+	TextBanner    bool   `json:"text_banner,omitempty"`
 }
 
 func (v VideoElement) Type() string {
@@ -53,6 +54,7 @@ type Server struct {
 	playerRunning bool
 	// current item control
 	currentCancel context.CancelFunc
+	rtmpURL       string
 }
 
 type PlayerStatus struct {
@@ -65,16 +67,20 @@ type PlayerStatus struct {
 	ProgrammedHours   float32
 }
 
-func NewServer() *Server {
+func NewServer(rtmpURL string) *Server {
+	if rtmpURL == "" {
+		rtmpURL = "rtmp://iptvsim-nginx:1935/live/stream"
+	}
 	return &Server{
-		loop: true,
+		loop:    true,
+		rtmpURL: rtmpURL,
 	}
 }
 
 func (s *Server) Append(item string) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	pl := VideoElement{Path: item, HiQuality: false}
+	pl := VideoElement{Path: item, HighQuality: false}
 	s.playlist = append(s.playlist, pl)
 	return len(s.playlist)
 }
@@ -290,11 +296,11 @@ func (s *Server) playerLoop(playerLoopCtx context.Context) {
 			itemCtx, itemCancel := context.WithCancel(playerLoopCtx)
 			s.mu.Lock()
 			s.currentCancel = itemCancel
+			rtmpURL := s.rtmpURL
 			s.mu.Unlock()
 
 			// simBackGroundTask(itemCtx, item)
 			// Stream the video file
-			rtmpURL := "rtmp://iptvsim-nginx:1935/live/stream"
 			err := StreamToRTMP(itemCtx, item, rtmpURL)
 			if err != nil && err != context.Canceled {
 				log.Printf("streaming error: %v", err)
@@ -320,4 +326,39 @@ func (s *Server) StopPlayer() bool {
 	s.playerCancel()
 	s.mu.Unlock()
 	return true
+}
+
+func (s *Server) LoadPlaylist(items []map[string]interface{}) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.playlist = nil
+
+	for _, item := range items {
+		itemType, ok := item["type"].(string)
+		if !ok {
+			continue
+		}
+
+		switch itemType {
+		case "video":
+			path, _ := item["path"].(string)
+			hiQuality, _ := item["high_quality"].(bool)
+			aspectRatio43, _ := item["aspect_ratio_4_3"].(bool)
+			textBanner, _ := item["text_banner"].(bool)
+			s.playlist = append(s.playlist, VideoElement{
+				Path:          path,
+				HighQuality:   hiQuality,
+				AspectRatio43: aspectRatio43,
+				TextBanner:    textBanner,
+			})
+		case "idle":
+			idleSeconds := int(item["idle_seconds"].(float64))
+			description, _ := item["description"].(string)
+			s.playlist = append(s.playlist, IdleElement{
+				IdleSeconds: idleSeconds,
+				Description: description,
+			})
+		}
+	}
+	return nil
 }
