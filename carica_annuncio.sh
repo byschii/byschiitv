@@ -6,9 +6,10 @@ curl -X POST http://localhost:8080/load \
   -d '[
     {
       "type": "video",
-      "path": "/mnt/c/poopleanno/annuncio.mp4",
+      "path": "/media/annunciofesta.mp4",
       "hi_quality": true,
-      "aspect_ratio_4_3": false
+      "aspect_ratio_4_3": false,
+      "text_banner": false
     }
   ]'
 
@@ -16,8 +17,8 @@ echo ""
 
 # Start playback
 curl http://localhost:8080/start
-
 echo ""
 
 # List current playlist
 curl http://localhost:8080/list
+echo ""
