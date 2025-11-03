@@ -7,7 +7,7 @@ curl -X POST http://localhost:8080/load \
     {
       "type": "video",
       "path": "/media/annunciofesta.mp4",
-      "hi_quality": true,
+      "quality_index": 1,
       "aspect_ratio_4_3": false,
       "text_banner": false
     }

@@ -16,7 +16,7 @@ type PlaylistElement interface {
 
 type VideoElement struct {
 	Path          string `json:"path"`
-	HighQuality   bool   `json:"high_quality"`
+	QualityIndex  int    `json:"quality_index,omitempty"`
 	AspectRatio43 bool   `json:"aspect_ratio_4_3,omitempty"`
 	TextBanner    bool   `json:"text_banner,omitempty"`
 }
@@ -80,7 +80,7 @@ func NewServer(rtmpURL string) *Server {
 func (s *Server) Append(item string) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	pl := VideoElement{Path: item, HighQuality: false}
+	pl := VideoElement{Path: item, QualityIndex: 1}
 	s.playlist = append(s.playlist, pl)
 	return len(s.playlist)
 }
@@ -342,12 +342,12 @@ func (s *Server) LoadPlaylist(items []map[string]interface{}) error {
 		switch itemType {
 		case "video":
 			path, _ := item["path"].(string)
-			hiQuality, _ := item["high_quality"].(bool)
+			qualityIndex, _ := item["quality_index"].(int)
 			aspectRatio43, _ := item["aspect_ratio_4_3"].(bool)
 			textBanner, _ := item["text_banner"].(bool)
 			s.playlist = append(s.playlist, VideoElement{
 				Path:          path,
-				HighQuality:   hiQuality,
+				QualityIndex:  qualityIndex,
 				AspectRatio43: aspectRatio43,
 				TextBanner:    textBanner,
 			})
