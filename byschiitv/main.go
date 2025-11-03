@@ -102,6 +102,16 @@ func main() {
 		Handler: r,
 	}
 
+	// List files in /media folder
+	entries, err := os.ReadDir("/media")
+	if err != nil {
+		log.Printf("failed to read /media: %v", err)
+	} else {
+		for _, entry := range entries {
+			log.Printf("/media: %s (dir: %v)", entry.Name(), entry.IsDir())
+		}
+	}
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
