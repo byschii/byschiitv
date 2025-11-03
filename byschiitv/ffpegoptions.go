@@ -21,7 +21,7 @@ type Q struct {
 }
 
 var Qualities169 = []Q{
-	{Width: 1280, Height: 720, FPS: 30, VBitrate: "3000k", ABitrate: "128k"}, // HD
+	{Width: 1280, Height: 720, FPS: 60, VBitrate: "8000k", ABitrate: "128k"}, // HD
 	{Width: 854, Height: 480, FPS: 23, VBitrate: "1000k", ABitrate: "96k"},   // SD
 	{Width: 640, Height: 360, FPS: 15, VBitrate: "600k", ABitrate: "64k"},    // LD
 }

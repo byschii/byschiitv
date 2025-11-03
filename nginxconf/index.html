@@ -10,8 +10,10 @@
 
   <!-- Optional small page style -->
   <style>
-    body { font-family: system-ui, Arial; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; background:#111; color:#fff; }
-    .player-wrap { max-width:960px; width:100%; padding:16px; box-sizing:border-box; }
+    * { margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; background: #000; color: #fff; font-family: system-ui, Arial; }
+    .player-wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+    .video-js { width: 100% !important; height: 100% !important; }
   </style>
 </head>
 <body>
@@ -19,10 +21,8 @@
     <video
       id="player"
       class="video-js vjs-big-play-centered"
-      controls
+      autoplay
       preload="auto"
-      width="800"
-      height="450"
       data-setup='{}'>
       <!-- Replace "mystream" with your stream key -->
       <source src="/hls/stream.m3u8" type="application/x-mpegURL" />
