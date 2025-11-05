@@ -21,22 +21,22 @@ type Q struct {
 }
 
 var Qualities169 = []Q{
-	// Ultra (SW fallback for 1080p60)
+	// 0 Ultra (SW fallback for 1080p60)
 	{Width: 1920, Height: 1080, FPS: 60, VBitrate: "10000k", ABitrate: "128k"}, // ULTRA_1080p60 (SW libx264 recommended)
 
-	// High (safe for Pi HW)
+	// 1 High (safe for Pi HW)
 	{Width: 1920, Height: 1080, FPS: 30, VBitrate: "8000k", ABitrate: "128k"}, // HIGH_1080p30 (HW h264_v4l2m2m)
 
-	// Sports (fast motion with fewer pixels)
+	// 2 Sports (fast motion with fewer pixels)
 	{Width: 1280, Height: 720, FPS: 60, VBitrate: "6000k", ABitrate: "128k"}, // SPORTS_720p60 (HW ok)
 
-	// Standard HD
+	// 3 Standard HD
 	{Width: 1280, Height: 720, FPS: 30, VBitrate: "3500k", ABitrate: "128k"}, // STANDARD_720p30
 
-	// Economy SD
+	// 4 Economy SD
 	{Width: 854, Height: 480, FPS: 30, VBitrate: "1200k", ABitrate: "96k"}, // ECONOMY_480p30
 
-	// Mobile / low bandwidth
+	// 5 Mobile / low bandwidth
 	{Width: 640, Height: 360, FPS: 30, VBitrate: "700k", ABitrate: "64k"}, // MOBILE_360p30
 }
 
@@ -51,7 +51,6 @@ var Qualities43 = []Q{
 // - Automatically switches to software (libx264) for 1080p60, which Pi HW can't do.
 // - Adds realtime-friendly flags: GOP≈2s, VBV, zerolatency, etc.
 func FfmpegCommand(videoPath string, rtmpURL string, ciccione bool, quality int, textBanner bool) []string {
-	fmt.Printf("Preparing FFmpeg command for %s (ciccione=%v, quality=%d, textBanner=%v)\n", videoPath, ciccione, quality, textBanner)
 	// Pick quality safely
 	var q Q
 	if ciccione {
@@ -118,6 +117,8 @@ func FfmpegCommand(videoPath string, rtmpURL string, ciccione bool, quality int,
 			"-bufsize", fmt.Sprintf("%dk", bufk),
 		}
 	}
+
+	fmt.Printf("FFmpeg command for %s (encoder=%v, quality=%d, textBanner=%v)\n", videoPath, encoder, quality, textBanner)
 
 	// Assemble args
 	args := []string{
