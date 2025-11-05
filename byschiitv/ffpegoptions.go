@@ -21,10 +21,23 @@ type Q struct {
 }
 
 var Qualities169 = []Q{
-	{Width: 1920, Height: 1080, FPS: 30, VBitrate: "12000k", ABitrate: "128k"}, // Full HD
-	{Width: 1280, Height: 720, FPS: 30, VBitrate: "8000k", ABitrate: "128k"},   // HD
-	{Width: 854, Height: 480, FPS: 30, VBitrate: "1000k", ABitrate: "96k"},     // SD
-	{Width: 640, Height: 360, FPS: 15, VBitrate: "600k", ABitrate: "64k"},      // LD
+	// Ultra (SW fallback for 1080p60)
+	{Width: 1920, Height: 1080, FPS: 60, VBitrate: "10000k", ABitrate: "128k"}, // ULTRA_1080p60 (SW libx264 recommended)
+
+	// High (safe for Pi HW)
+	{Width: 1920, Height: 1080, FPS: 30, VBitrate: "8000k", ABitrate: "128k"}, // HIGH_1080p30 (HW h264_v4l2m2m)
+
+	// Sports (fast motion with fewer pixels)
+	{Width: 1280, Height: 720, FPS: 60, VBitrate: "6000k", ABitrate: "128k"}, // SPORTS_720p60 (HW ok)
+
+	// Standard HD
+	{Width: 1280, Height: 720, FPS: 30, VBitrate: "3500k", ABitrate: "128k"}, // STANDARD_720p30
+
+	// Economy SD
+	{Width: 854, Height: 480, FPS: 30, VBitrate: "1200k", ABitrate: "96k"}, // ECONOMY_480p30
+
+	// Mobile / low bandwidth
+	{Width: 640, Height: 360, FPS: 30, VBitrate: "700k", ABitrate: "64k"}, // MOBILE_360p30
 }
 
 var Qualities43 = []Q{
@@ -33,17 +46,32 @@ var Qualities43 = []Q{
 	{Width: 480, Height: 360, FPS: 15, VBitrate: "600k", ABitrate: "64k"},   // LD
 }
 
-// streamToRTMP starts an FFmpeg command to stream a video file to nginx-rtmp.
-// It listens on ctx and stops the stream when cancelled.
+// FfmpegCommand builds an ffmpeg arg list for RTMP streaming.
+// - Uses HW encoder (h264_v4l2m2m) for typical cases.
+// - Automatically switches to software (libx264) for 1080p60, which Pi HW can't do.
+// - Adds realtime-friendly flags: GOP≈2s, VBV, zerolatency, etc.
 func FfmpegCommand(videoPath string, rtmpURL string, ciccione bool, quality int, textBanner bool) []string {
-
+	// Pick quality safely
 	var q Q
 	if ciccione {
-		q = Qualities43[quality] // 4:3 aspect ratio, high quality
+		if quality < 0 {
+			quality = 0
+		}
+		if quality >= len(Qualities43) {
+			quality = len(Qualities43) - 1
+		}
+		q = Qualities43[quality]
 	} else {
-		q = Qualities169[quality] // 16:9 aspect ratio, high quality
+		if quality < 0 {
+			quality = 0
+		}
+		if quality >= len(Qualities169) {
+			quality = len(Qualities169) - 1
+		}
+		q = Qualities169[quality]
 	}
 
+	// Build video filter chain
 	var vFilter string
 	if textBanner {
 		vFilter = fmt.Sprintf("scale=%d:%d,fps=%d,format=yuv420p,%s", q.Width, q.Height, q.FPS, getTextFilter(videoPath))
@@ -51,27 +79,76 @@ func FfmpegCommand(videoPath string, rtmpURL string, ciccione bool, quality int,
 		vFilter = fmt.Sprintf("scale=%d:%d,fps=%d,format=yuv420p", q.Width, q.Height, q.FPS)
 	}
 
+	// Decide encoder
 	usingRaspberryPi := true
+	want1080p60 := (q.Width >= 1920 && q.FPS > 30)
+
 	var encoder string
-	if usingRaspberryPi {
-		encoder = "h264_v4l2m2m"
-	} else {
+	var extra []string
+
+	if want1080p60 || !usingRaspberryPi {
+		// Fall back to software for 1080p60
 		encoder = "libx264"
+		// Real-time, low-latency RTMP-friendly settings
+		level := "4.2" // for 1080p60
+		gop := q.FPS * 2
+		bufk := 2 * atoiK(q.VBitrate) // 2x VBV buffer
+		extra = []string{
+			"-preset", "veryfast", // try "ultrafast" if CPU is tight
+			"-tune", "zerolatency",
+			"-profile:v", "high",
+			"-level:v", level,
+			"-g", strconv.Itoa(gop),
+			"-keyint_min", strconv.Itoa(gop),
+			"-sc_threshold", "0",
+			"-maxrate", q.VBitrate,
+			"-bufsize", fmt.Sprintf("%dk", bufk),
+			"-threads", "0",
+		}
+	} else {
+		// Use Pi HW encoder
+		encoder = "h264_v4l2m2m"
+		// Keep a stable GOP; VBV helps RTMP stability on some setups
+		gop := q.FPS * 2
+		bufk := 2 * atoiK(q.VBitrate)
+		extra = []string{
+			"-g", strconv.Itoa(gop),
+			"-maxrate", q.VBitrate,
+			"-bufsize", fmt.Sprintf("%dk", bufk),
+		}
 	}
-	sliceCommand := []string{
+
+	// Assemble args
+	args := []string{
 		"-re",
 		"-i", videoPath,
 		"-vf", vFilter,
 		"-pix_fmt", "yuv420p",
 		"-c:v", encoder,
+	}
+	args = append(args, extra...)
+	args = append(args,
 		"-b:v", q.VBitrate,
 		"-c:a", "aac",
 		"-b:a", q.ABitrate,
+		"-ar", "48000",
+		"-ac", "2",
 		"-f", "flv",
 		rtmpURL,
-	}
+	)
 
-	return sliceCommand
+	return args
+}
+
+// atoiK converts "8000k" -> 8000 (kbit). Returns 0 on error.
+func atoiK(s string) int {
+	s = strings.ToLower(strings.TrimSpace(s))
+	s = strings.TrimSuffix(s, "k")
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return 0
+	}
+	return n
 }
 
 func getTextFilter(description string) string {
