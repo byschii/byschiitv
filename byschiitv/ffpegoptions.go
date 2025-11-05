@@ -122,7 +122,7 @@ func FfmpegCommand(videoPath string, rtmpURL string, ciccione bool, quality int,
 
 	// Assemble args
 	args := []string{
-		"-re",
+		// "-re",
 		"-i", videoPath,
 		"-vf", vFilter,
 		"-pix_fmt", "yuv420p",
