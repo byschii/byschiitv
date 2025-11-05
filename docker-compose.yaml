@@ -27,7 +27,7 @@ services:
   byschiitv:
     build:
       context: ./byschiitv
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.wsl
     container_name: iptvsim-app
     ports:
       - "8080:8080"  # API port - for queue management
