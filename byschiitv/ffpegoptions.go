@@ -51,6 +51,7 @@ var Qualities43 = []Q{
 // - Automatically switches to software (libx264) for 1080p60, which Pi HW can't do.
 // - Adds realtime-friendly flags: GOP≈2s, VBV, zerolatency, etc.
 func FfmpegCommand(videoPath string, rtmpURL string, ciccione bool, quality int, textBanner bool) []string {
+	fmt.Printf("Preparing FFmpeg command for %s (ciccione=%v, quality=%d, textBanner=%v)\n", videoPath, ciccione, quality, textBanner)
 	// Pick quality safely
 	var q Q
 	if ciccione {
