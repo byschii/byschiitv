@@ -24,8 +24,9 @@ RUN apt-get update && \
 
     # Non-root user that can access /dev/video*
 RUN useradd -m -u 1000 -s /bin/bash app && \
-    usermod -aG video app && \
-    usermod -aG render app
+    usermod -aG video app 
+    # && \
+    # usermod -aG render app
 
 # Fix: Set proper permissions on video devices at runtime
 RUN echo 'app ALL=(ALL) NOPASSWD: /bin/chmod' >> /etc/sudoers.d/app || true

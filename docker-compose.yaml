@@ -42,7 +42,6 @@ services:
     restart: unless-stopped
     group_add:
       - video
-      - render
     privileged: true          # keep on while you debug; you can tighten later
     devices:
       - "/dev/video10:/dev/video10"   # stateful decoder (m2m)
