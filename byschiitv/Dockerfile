@@ -28,6 +28,6 @@ RUN useradd -m -u 1000 -s /bin/bash app && usermod -aG video app
 COPY --from=builder /out/iptvsim /usr/local/bin/iptvsim
 WORKDIR /work
 EXPOSE 8080
-USER app
+USER root
 
 ENTRYPOINT ["/usr/local/bin/iptvsim"]
