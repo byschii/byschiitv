@@ -61,11 +61,12 @@ func FfmpegCommand(videoPath string, rtmpURL string, ciccione bool, quality int,
 	sliceCommand := []string{
 		"-re",
 		"-i", videoPath,
+		"-vf", vFilter,
+		"-pix_fmt", "yuv420p",
 		"-c:v", encoder,
 		"-b:v", q.VBitrate,
 		"-c:a", "aac",
 		"-b:a", q.ABitrate,
-		"-vf", vFilter,
 		"-f", "flv",
 		rtmpURL,
 	}
