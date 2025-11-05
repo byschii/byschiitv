@@ -51,12 +51,18 @@ func FfmpegCommand(videoPath string, rtmpURL string, ciccione bool, quality int,
 		vFilter = fmt.Sprintf("scale=%d:%d,fps=%d,format=yuv420p", q.Width, q.Height, q.FPS)
 	}
 
+	usingRaspberryPi := true
+	var encoder string
+	if usingRaspberryPi {
+		encoder = "h264_v4l2m2m"
+	} else {
+		encoder = "libx264"
+	}
 	sliceCommand := []string{
 		"-re",
 		"-i", videoPath,
-		"-c:v", "h264_v4l2m2m",
-		//		"-preset", "veryfast",
-		//		"-tune", "zerolatency",
+		"-c:v", encoder,
+		"-hwaccel", "v4l2m2m",
 		"-b:v", q.VBitrate,
 		"-c:a", "aac",
 		"-b:a", q.ABitrate,
