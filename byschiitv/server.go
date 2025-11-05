@@ -342,7 +342,10 @@ func (s *Server) LoadPlaylist(items []map[string]interface{}) error {
 		switch itemType {
 		case "video":
 			path, _ := item["path"].(string)
-			qualityIndex, _ := item["quality_index"].(int)
+			qualityIndex := 0
+			if qi, ok := item["quality_index"].(float64); ok {
+				qualityIndex = int(qi)
+			}
 			aspectRatio43, _ := item["aspect_ratio_4_3"].(bool)
 			textBanner, _ := item["text_banner"].(bool)
 			s.playlist = append(s.playlist, VideoElement{
