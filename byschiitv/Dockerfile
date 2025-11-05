@@ -21,13 +21,19 @@ RUN apt-get update && \
       ffmpeg v4l-utils libdrm2 ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Non-root user that can access /dev/video*
-RUN useradd -m -u 1000 -s /bin/bash app && usermod -aG video app
+
+    # Non-root user that can access /dev/video*
+RUN useradd -m -u 1000 -s /bin/bash app && \
+    usermod -aG video app && \
+    usermod -aG render app
+
+# Fix: Set proper permissions on video devices at runtime
+RUN echo 'app ALL=(ALL) NOPASSWD: /bin/chmod' >> /etc/sudoers.d/app || true
 
 # App
 COPY --from=builder /out/iptvsim /usr/local/bin/iptvsim
 WORKDIR /work
 EXPOSE 8080
-USER root
+USER app
 
 ENTRYPOINT ["/usr/local/bin/iptvsim"]
