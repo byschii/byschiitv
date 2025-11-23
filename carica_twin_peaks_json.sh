@@ -4,6 +4,10 @@
 # usage: ./carica_twin_peaks_json.sh [quality_index]
 QUALITY=${1:-2} # Default to quality index 2 if not provided
 
+# Clear playlist
+curl http://localhost:8080/clear
+echo ""
+
 # Load Twin Peaks season 1 playlist as JSON and start playback
 curl -X POST http://localhost:8080/load \
   -H "Content-Type: application/json" \

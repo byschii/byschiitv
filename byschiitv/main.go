@@ -92,6 +92,12 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"status": "loaded", "count": len(items)})
 	})
 
+	// Clear
+	r.GET("/clear", func(c *gin.Context) {
+		srv.Clear()
+		c.JSON(http.StatusOK, gin.H{"status": "cleared"})
+	})
+
 	// root
 	r.GET("/", func(c *gin.Context) {
 		c.String(http.StatusOK, "iptvsim server. endpoints: /enque/<string> /next /list /start /stop /load (POST)")
