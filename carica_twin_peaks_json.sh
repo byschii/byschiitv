@@ -2,7 +2,7 @@
 
 # read quality index from command line argument
 # usage: ./carica_twin_peaks_json.sh [quality_index]
-QUALITY=${1:-2} # Default to quality index 2 if not provided
+QUALITY=${1:-3} # Default to quality index 2 if not provided
 
 # Clear playlist
 curl http://localhost:8080/clear

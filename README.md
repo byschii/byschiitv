@@ -10,6 +10,46 @@ There are 3 components:
 - a client to plan shows
     - tui client to plan shows via the REST API
 
+## Ports (when Docker is running)
+
+**`localhost:80`** → nginx
+- HLS player (web UI): `http://localhost/`
+- Stream: `http://localhost/hls/stream.m3u8`
+- Stats: `http://localhost/stat`
+
+**`localhost:8080`** → golang API
+- Control endpoints: `/start`, `/stop`, `/next`, `/enque/*`, `/list`, `/load`, `/clear`
+- For scripts, TUI, curl - not for web client
+
+**`localhost:1935`** → nginx RTMP (internal use)
+- ffmpeg publishes here: `rtmp://localhost:1935/live/stream`
+- Not accessed by browser
+
+**Flow:** External tool → golang API (8080) → ffmpeg → nginx RTMP (1935) → nginx HLS (80) → browser
+
+## Running Multiple Instances
+
+To run multiple instances in parallel, use environment variables:
+
+```bash
+# Instance 1 (default ports)
+docker-compose up -d
+
+# Instance 2 (different ports)
+CONTAINER_PREFIX=iptvsim2 HOST_PORT_HTTP=81 HOST_PORT_API=8081 HOST_PORT_RTMP=1936 \
+  docker-compose up -d
+
+# Or use env file
+docker-compose --env-file .env.instance2 up -d
+```
+
+**Available env vars:**
+- `CONTAINER_PREFIX` - Container name prefix (default: `iptvsim`)
+- `HOST_PORT_HTTP` - nginx HTTP port (default: `80`)
+- `HOST_PORT_API` - golang API port (default: `8080`)
+- `HOST_PORT_RTMP` - nginx RTMP port (default: `1935`)
+- `HOST_MEDIA_PATH` - Media directory (default: `./byschiitv/media`)
+
 ## Some of the phylosophy
 
 - on the golang server
