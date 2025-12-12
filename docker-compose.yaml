@@ -6,7 +6,7 @@ services:
     build:
       context: .
       dockerfile: nginxconf/Dockerfile
-    container_name: ${CONTAINER_PREFIX:-iptvsim}-nginx
+    container_name: ${CONTAINER_PREFIX:-bskztv}-nginx-${CONTAINER_POSTFIX:-byschiitv}
     ports:
       - "${HOST_PORT_RTMP:-1935}:1935"  # RTMP port - for publishing streams
       - "${HOST_PORT_HTTP:-80}:8080"    # HTTP port - for HLS/DASH playback and stats
@@ -28,7 +28,7 @@ services:
     build:
       context: ./byschiitv
       dockerfile: Dockerfile
-    container_name: ${CONTAINER_PREFIX:-iptvsim}-app
+    container_name: ${CONTAINER_PREFIX:-bskztv}-golang-${CONTAINER_POSTFIX:-byschiitv}
     ports:
       - "${HOST_PORT_API:-8080}:8080"  # API port - for queue management
     volumes:
