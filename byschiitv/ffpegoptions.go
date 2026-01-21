@@ -81,7 +81,7 @@ func FfmpegCommand(videoPath string, rtmpURL string, ciccione bool, quality int,
 	}
 
 	// Decide encoder
-	usingRaspberryPi := false
+	usingRaspberryPi := os.Getenv("USING_RASPBERRY_PI") != "false"
 	want1080p60 := (q.Width >= 1920 && q.FPS > 30)
 
 	var encoder string
