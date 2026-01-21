@@ -50,7 +50,8 @@ var Qualities43 = []Q{
 // - Uses HW encoder (h264_v4l2m2m) for typical cases.
 // - Automatically switches to software (libx264) for 1080p60, which Pi HW can't do.
 // - Adds realtime-friendly flags: GOP≈2s, VBV, zerolatency, etc.
-func FfmpegCommand(videoPath string, rtmpURL string, ciccione bool, quality int, textBanner bool) []string {
+// - startTime: seek position in seconds (uses -ss before -i for fast seeking)
+func FfmpegCommand(videoPath string, rtmpURL string, ciccione bool, quality int, textBanner bool, startTime float64) []string {
 	// Pick quality safely
 	var q Q
 	if ciccione {
@@ -80,7 +81,7 @@ func FfmpegCommand(videoPath string, rtmpURL string, ciccione bool, quality int,
 	}
 
 	// Decide encoder
-	usingRaspberryPi := true
+	usingRaspberryPi := false
 	want1080p60 := (q.Width >= 1920 && q.FPS > 30)
 
 	var encoder string
@@ -118,16 +119,20 @@ func FfmpegCommand(videoPath string, rtmpURL string, ciccione bool, quality int,
 		}
 	}
 
-	fmt.Printf("FFmpeg command for %s (encoder=%v, quality=%d, textBanner=%v)\n", videoPath, encoder, quality, textBanner)
+	fmt.Printf("FFmpeg command for %s (encoder=%v, quality=%d, textBanner=%v, startTime=%.2f)\n", videoPath, encoder, quality, textBanner, startTime)
 
 	// Assemble args
-	args := []string{
-		"-re",
+	args := []string{"-re"}
+	// Add seek before input for fast seeking
+	if startTime > 0 {
+		args = append(args, "-ss", fmt.Sprintf("%.2f", startTime))
+	}
+	args = append(args,
 		"-i", videoPath,
 		"-vf", vFilter,
 		"-pix_fmt", "yuv420p",
 		"-c:v", encoder,
-	}
+	)
 	args = append(args, extra...)
 	args = append(args,
 		"-b:v", q.VBitrate,
@@ -266,8 +271,9 @@ func escapeFFmpegText(text string) string {
 
 // streamToRTMP starts an FFmpeg command to stream a video file to nginx-rtmp.
 // It listens on ctx and stops the stream when cancelled.
-func StreamToRTMP(ctx context.Context, video PlaylistElement, rtmpURL string) error {
-	log.Print("streaming: ", video.Desc())
+// startTime is the seek position in seconds (used with -ss flag).
+func StreamToRTMP(ctx context.Context, video PlaylistElement, rtmpURL string, startTime float64) error {
+	log.Printf("streaming: %s (startTime=%.2fs)", video.Desc(), startTime)
 
 	var cmd *exec.Cmd
 	switch video := video.(type) {
@@ -284,7 +290,7 @@ func StreamToRTMP(ctx context.Context, video PlaylistElement, rtmpURL string) er
 			)...,
 		)
 	case VideoElement:
-		cmd = exec.CommandContext(ctx, "ffmpeg", FfmpegCommand(video.Path, rtmpURL, video.AspectRatio43, video.QualityIndex, video.TextBanner)...)
+		cmd = exec.CommandContext(ctx, "ffmpeg", FfmpegCommand(video.Path, rtmpURL, video.AspectRatio43, video.QualityIndex, video.TextBanner, startTime)...)
 	default:
 		return fmt.Errorf("unknown video element type")
 	}

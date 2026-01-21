@@ -2,10 +2,11 @@
 FROM --platform=$BUILDPLATFORM golang:1.23-alpine AS builder
 
 WORKDIR /src
-COPY go.mod go.sum ./
+COPY byschiitv/go.mod byschiitv/go.sum ./
 RUN go mod download
 
-COPY . .
+COPY byschiitv/ .
+COPY .env .env
 ARG TARGETOS=linux
 ARG TARGETARCH
 ENV CGO_ENABLED=0
@@ -33,6 +34,7 @@ RUN echo 'app ALL=(ALL) NOPASSWD: /bin/chmod' >> /etc/sudoers.d/app || true
 
 # App
 COPY --from=builder /out/iptvsim /usr/local/bin/iptvsim
+COPY --from=builder /src/.env /work/.env
 WORKDIR /work
 EXPOSE 8080
 USER app

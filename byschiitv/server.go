@@ -15,10 +15,11 @@ type PlaylistElement interface {
 }
 
 type VideoElement struct {
-	Path          string `json:"path"`
-	QualityIndex  int    `json:"quality_index,omitempty"`
-	AspectRatio43 bool   `json:"aspect_ratio_4_3,omitempty"`
-	TextBanner    bool   `json:"text_banner,omitempty"`
+	Path          string  `json:"path"`
+	StartTime     float64 `json:"start_time,omitempty"`
+	QualityIndex  int     `json:"quality_index,omitempty"`
+	AspectRatio43 bool    `json:"aspect_ratio_4_3,omitempty"`
+	TextBanner    bool    `json:"text_banner,omitempty"`
 }
 
 func (v VideoElement) Type() string {
@@ -55,6 +56,10 @@ type Server struct {
 	// current item control
 	currentCancel context.CancelFunc
 	rtmpURL       string
+	// seek tracking (reset on video change)
+	currentStartTime float64   // -ss offset for current video
+	currentStartedAt time.Time // when current video started playing
+	currentDuration  float64   // cached duration of current video in seconds
 }
 
 type PlayerStatus struct {
@@ -175,15 +180,20 @@ func (s *Server) IsPlaying() bool {
 func (s *Server) Next() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.playerRunning || s.currentlyPlaying+1 >= len(s.playlist) {
+	if !s.playerRunning {
 		return false
 	}
 
-	if s.loop {
-		s.currentlyPlaying = (s.currentlyPlaying + 1) % len(s.playlist)
+	if s.currentlyPlaying+1 >= len(s.playlist) {
+		if !s.loop {
+			return false
+		}
+		s.currentlyPlaying = 0
 	} else {
 		s.currentlyPlaying++
 	}
+
+	s.resetSeekState()
 	if s.currentCancel != nil {
 		s.currentCancel()
 	}
@@ -193,15 +203,20 @@ func (s *Server) Next() bool {
 func (s *Server) Previous() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.playerRunning || s.currentlyPlaying-1 < 0 {
+	if !s.playerRunning {
 		return false
 	}
 
-	if s.loop {
-		s.currentlyPlaying = (s.currentlyPlaying - 1 + len(s.playlist)) % len(s.playlist)
+	if s.currentlyPlaying-1 < 0 {
+		if !s.loop {
+			return false
+		}
+		s.currentlyPlaying = len(s.playlist) - 1
 	} else {
 		s.currentlyPlaying--
 	}
+
+	s.resetSeekState()
 	if s.currentCancel != nil {
 		s.currentCancel()
 	}
@@ -218,6 +233,13 @@ func (s *Server) IsLoop() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.loop
+}
+
+// resetSeekState resets seek position and duration tracking.
+// Must be called with lock held.
+func (s *Server) resetSeekState() {
+	s.currentStartTime = 0
+	s.currentDuration = 0
 }
 
 func (s *Server) StartPlayer() bool {
@@ -297,14 +319,28 @@ func (s *Server) playerLoop(playerLoopCtx context.Context) {
 			s.mu.Lock()
 			s.currentCancel = itemCancel
 			rtmpURL := s.rtmpURL
+			startTime := s.currentStartTime
+			s.currentStartedAt = time.Now()
+			// cache duration for current video
+			if v, ok := item.(VideoElement); ok {
+				if dur, err := GetVideoDuration(context.Background(), v.Path); err == nil {
+					s.currentDuration = dur.Seconds()
+				}
+			} else if idle, ok := item.(IdleElement); ok {
+				s.currentDuration = float64(idle.IdleSeconds)
+			}
 			s.mu.Unlock()
 
-			// simBackGroundTask(itemCtx, item)
 			// Stream the video file
-			err := StreamToRTMP(itemCtx, item, rtmpURL)
+			err := StreamToRTMP(itemCtx, item, rtmpURL, startTime)
 			if err != nil && err != context.Canceled {
 				log.Printf("streaming error: %v", err)
 			}
+
+			s.mu.Lock()
+			s.resetSeekState()
+			s.mu.Unlock()
+
 			s.Next()
 
 			s.mu.Lock()
@@ -346,10 +382,15 @@ func (s *Server) LoadPlaylist(items []map[string]interface{}) error {
 			if qi, ok := item["quality_index"].(float64); ok {
 				qualityIndex = int(qi)
 			}
+			startTime := 0.0
+			if st, ok := item["start_time"].(float64); ok {
+				startTime = st
+			}
 			aspectRatio43, _ := item["aspect_ratio_4_3"].(bool)
 			textBanner, _ := item["text_banner"].(bool)
 			s.playlist = append(s.playlist, VideoElement{
 				Path:          path,
+				StartTime:     startTime,
 				QualityIndex:  qualityIndex,
 				AspectRatio43: aspectRatio43,
 				TextBanner:    textBanner,
@@ -364,4 +405,120 @@ func (s *Server) LoadPlaylist(items []map[string]interface{}) error {
 		}
 	}
 	return nil
+}
+
+// SkipResponse is the response for skip/jump endpoints
+type SkipResponse struct {
+	FromPosition float64 `json:"from_position"`
+	ToPosition   float64 `json:"to_position"`
+	Video        string  `json:"video"`
+}
+
+// getCurrentPosition returns current playback position in seconds
+func (s *Server) getCurrentPosition() (float64, error) {
+	// must be called with lock held
+	if !s.playerRunning || s.currentCancel == nil {
+		return 0, fmt.Errorf("not playing")
+	}
+
+	elapsed := time.Since(s.currentStartedAt).Seconds()
+	return s.currentStartTime + elapsed, nil
+}
+
+// Skip skips delta seconds in current video. Positive = forward, negative = backward.
+// Returns error if not playing a video. Skips to next video if past end.
+func (s *Server) Skip(delta float64) (*SkipResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if !s.playerRunning || s.currentCancel == nil {
+		return nil, fmt.Errorf("not playing")
+	}
+
+	currentVideo, ok := s.playlist[s.currentlyPlaying].(VideoElement)
+	if !ok {
+		return nil, fmt.Errorf("current item is not a video")
+	}
+
+	fromPos, err := s.getCurrentPosition()
+	if err != nil {
+		return nil, err
+	}
+
+	toPos := fromPos + delta
+
+	// Clamp to 0 if before start
+	if toPos < 0 {
+		toPos = 0
+	}
+
+	// If past duration, skip to next video
+	if s.currentDuration > 0 && toPos >= s.currentDuration {
+		s.mu.Unlock()
+		s.Next()
+		s.mu.Lock()
+		return &SkipResponse{
+			FromPosition: fromPos,
+			ToPosition:   s.currentDuration,
+			Video:        currentVideo.Path,
+		}, nil
+	}
+
+	// Restart current video at new position
+	s.currentStartTime = toPos
+	if s.currentCancel != nil {
+		s.currentCancel()
+	}
+
+	return &SkipResponse{
+		FromPosition: fromPos,
+		ToPosition:   toPos,
+		Video:        currentVideo.Path,
+	}, nil
+}
+
+// Jump jumps to a percentage (0-100) of current video.
+func (s *Server) Jump(percent float64) (*SkipResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if !s.playerRunning || s.currentCancel == nil {
+		return nil, fmt.Errorf("not playing")
+	}
+
+	currentVideo, ok := s.playlist[s.currentlyPlaying].(VideoElement)
+	if !ok {
+		return nil, fmt.Errorf("current item is not a video")
+	}
+
+	if s.currentDuration <= 0 {
+		return nil, fmt.Errorf("duration not available")
+	}
+
+	fromPos, err := s.getCurrentPosition()
+	if err != nil {
+		return nil, err
+	}
+
+	// Clamp percent
+	if percent < 0 {
+		percent = 0
+	}
+	if percent > 100 {
+		percent = 100
+	}
+
+	toPos := s.currentDuration * (percent / 100.0)
+
+	// Restart current video at new position
+	s.currentStartTime = toPos
+	if s.currentCancel != nil {
+		s.currentCancel()
+	}
+
+	return &SkipResponse{
+		FromPosition: fromPos,
+		ToPosition:   toPos,
+		Video:        currentVideo.Path,
+	}, nil
 }

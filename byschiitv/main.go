@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -19,9 +21,21 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Recovery())
 
+	// load .env variables
+	err := godotenv.Load()
+	if err != nil {
+		log.Printf("No .env file found")
+	}
+
 	rtmpURL := os.Getenv("RTMP_URL")
+	log.Printf("RTMP_URL env: %s", rtmpURL)
 	if rtmpURL == "" {
-		rtmpURL = "rtmp://iptvsim-nginx:1935/live/stream"
+		domain := os.Getenv("CONTAINER_PREFIX") + "-nginx-" + os.Getenv("CONTAINER_POSTFIX")
+		port := os.Getenv("HOST_PORT_RTMP")
+		if port == "" {
+			port = "1935"
+		}
+		rtmpURL = "rtmp://" + domain + ":" + port + "/live/stream"
 	}
 	log.Printf("Using RTMP URL: %s", rtmpURL)
 
@@ -98,9 +112,49 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"status": "cleared"})
 	})
 
+	// Skip: /skip?delta=<seconds>
+	r.GET("/skip", func(c *gin.Context) {
+		deltaStr := c.Query("delta")
+		if deltaStr == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "missing delta parameter"})
+			return
+		}
+		delta, err := strconv.ParseFloat(deltaStr, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid delta"})
+			return
+		}
+		resp, err := srv.Skip(delta)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, resp)
+	})
+
+	// Jump: /jump?percent=<0-100>
+	r.GET("/jump", func(c *gin.Context) {
+		percentStr := c.Query("percent")
+		if percentStr == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "missing percent parameter"})
+			return
+		}
+		percent, err := strconv.ParseFloat(percentStr, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid percent"})
+			return
+		}
+		resp, err := srv.Jump(percent)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, resp)
+	})
+
 	// root
 	r.GET("/", func(c *gin.Context) {
-		c.String(http.StatusOK, "iptvsim server. endpoints: /enque/<string> /next /list /start /stop /load (POST)")
+		c.String(http.StatusOK, "iptvsim server. endpoints: /enque/<string> /next /list /start /stop /load (POST) /skip?delta= /jump?percent=")
 	})
 
 	server := &http.Server{
