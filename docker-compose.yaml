@@ -27,7 +27,7 @@ services:
   byschiitv:
     build:
       context: .
-      dockerfile: byschiitv/Dockerfile.wsl
+      dockerfile: byschiitv/Dockerfile
     container_name: ${CONTAINER_PREFIX:-bskztv}-golang-${CONTAINER_POSTFIX:-byschiitv}
     ports:
       - "${HOST_PORT_API:-8080}:8080"  # API port - for queue management
